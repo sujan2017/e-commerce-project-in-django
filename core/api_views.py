@@ -1,4 +1,5 @@
 from rest_framework.views import APIView
+from rest_framework.generics import ListAPIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
@@ -153,29 +154,45 @@ class LoginAPI(APIView):
     
 
 
-class OrderListAPI(APIView):
+class CustomerOrderListAPI(ListAPIView):
 
-    permission_classes= [IsAuthenticated]
+    serializer_class=OrderSerializer
+    permission_classes= [IsCustomer]
 
-    def get(self, request):
-        
-        role= request.user.role.role
-
-        if role=="ADMIN":
-            orders= Order.objects.all()
-        
-        elif role=="CUSTOMER":
-            customer= CustomerProfile.objects.get(user=request.user)
-            orders= Order.objects.filter(customer=customer)
-
-        else:
-            return Response(
-                {"error": "You are not allowed to view orderas"}
-            )
-            
-        serializer = OrderSerializer(orders, many=True)
-        return Response(serializer.data)
+    def get_queryset(self):
+        return Order.objects.filter(customer__user=self.request.user)
     
+
+class AdminOrderListAPI(ListAPIView):
+
+    serializer_class=OrderSerializer
+    permission_classes=[IsAdmin]
+
+    def get_queryset(self):
+        return Order.objects.all()
+    
+class SupplierOrderListAPI(ListAPIView):
+
+    serializer_class=OrderSerializer
+    permission_classes=[IsSupplier]
+
+    def get_queryset(self):
+        return Order.objects.filter(
+            items__product__supplier__user=self.request.user
+        ).distinct()
+    
+
+class DeliveryOrderListAPI(ListAPIView):
+
+    serializer_class=OrderSerializer
+    permission_classes=[IsDelivery]
+
+    def get_queryset(self):
+        return Order.objects.filter(
+            delivery_person__user=self.request.user
+        )
+
+
 
 class OrderCreateAPI(APIView):
 
@@ -416,3 +433,6 @@ class AdminAnalyticsAPI(APIView):
             "top_suppliers": top_suppliers,
             "recent_orders": recent_orders_data
         })
+
+
+

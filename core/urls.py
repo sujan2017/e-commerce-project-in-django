@@ -6,10 +6,15 @@ from .api_views import (
     RegisterAPI,
     LoginAPI,
 
-    OrderListAPI,
+    
     OrderCreateAPI,
     OrderDetailAPI,
 
+    AdminOrderListAPI,
+    CustomerOrderListAPI,
+    SupplierOrderListAPI,
+    DeliveryOrderListAPI,
+    
     AdminPendingProductListAPI,
     AdminProductApproveAPI,
     AdminAnalyticsAPI,
@@ -35,9 +40,10 @@ urlpatterns = [
     # Products
     path('products/', ProductListAPI.as_view(), name='product-list'),                      # all approved products
     path('supplier/products/add/', SupplierProductCreateAPI.as_view()),
+    path('supplier/orders/', SupplierOrderListAPI.as_view()),
 
     # Orders (Customer)
-    path('orders/', OrderListAPI.as_view()),                           # view own orders
+    path('orders/', CustomerOrderListAPI.as_view()),                           # view own orders
     path('orders/create/', OrderCreateAPI.as_view()),                  # create order
     path('orders/<int:id>/', OrderDetailAPI.as_view()),                # order detail
 
@@ -48,9 +54,11 @@ urlpatterns = [
     # Admin – Order Management
     path('admin/orders/<int:id>/accept/', AdminOrderAcceptAPI.as_view()),
     path('admin/orders/<int:id>/assign-delivery/', AdminAssignDeliveryAPI.as_view()),
+    path('admin/orders/', AdminOrderListAPI.as_view()),
 
     # Delivery
     path('delivery/orders/<int:id>/status/', DeliveryOrderStatusUpdateAPI.as_view()),
+    path('delivery/orders/', DeliveryOrderListAPI.as_view()),
 
     # Notifications
     path('notifications/', NotificationListAPI.as_view()),
