@@ -23,7 +23,7 @@ class TestAPI(APIView):
 
 
 class StandardPagination(PageNumberPagination):
-    page_size = 5
+    page_size = 10
     page_size_query_param = 'page_size'
     max_page_size = 50
 
@@ -33,43 +33,40 @@ class ProductListAPI(APIView):
 
     def get(self, request):
 
-        products = Product.objects.filter(approved=True)
+        products = Product.objects.filter(
+            approved=True
+        ).select_related('category', 'supplier')
 
-        #..search by name..
-        search = request.GET.get('search')
+        search = request.query_params.get('search')
         if search:
-            products= products.filter(name__icontains=search)
+            products = products.filter(
+                name__icontains=search.strip()
+            )
 
-        #..filter by category...
-
-        category = request.GET.get('category')
+        category = request.query_params.get('category')
         if category:
-            products= products.filter(category__name__iexact = category)
+            products = products.filter(
+                category__name__iexact=category.strip()
+            )
 
+        min_price = request.query_params.get('min_price')
+        max_price = request.query_params.get('max_price')
 
-        #filter by price range 
+        try:
+            if min_price:
+                products = products.filter(price__gte=float(min_price))
+            if max_price:
+                products = products.filter(price__lte=float(max_price))
+        except ValueError:
+            return Response({"error": "Invalid price format"}, status=400)
 
-        min_price = request.GET.get('min_price')
-        max_price = request.GET.get('max_price')
-
-        if min_price:
-            products = products.filter(price__gte=min_price)
-
-        if max_price:
-            products= products.filter(price__lte=max_price)
-
-
-        # Ordering
-
-        order = request.GET.get('order')
+        order = request.query_params.get('order')
         if order == 'price_low':
             products = products.order_by('price')
         elif order == 'price_high':
             products = products.order_by('-price')
         elif order == 'new':
             products = products.order_by('-created_at')
-
-        # pagination
 
         paginator = StandardPagination()
         result_page = paginator.paginate_queryset(products, request)
@@ -78,9 +75,9 @@ class ProductListAPI(APIView):
             serializer = ProductSerializer(result_page, many=True)
             return paginator.get_paginated_response(serializer.data)
 
-        serializer= ProductSerializer(products, many=True)
+        serializer = ProductSerializer(products, many=True)
         return Response(serializer.data)
-        
+
 
         
 
