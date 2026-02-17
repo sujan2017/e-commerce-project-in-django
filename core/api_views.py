@@ -103,6 +103,55 @@ class SupplierProductCreateAPI(APIView):
             return Response(serializer.data, status=201)
 
         return Response(serializer.errors, status=400)
+    
+class SupplierProductListAPI(APIView):
+    permission_classes = [IsSupplier]
+
+    def get(self, request):
+        products = Product.objects.filter(supplier=request.user)
+
+        # Search
+        search = request.GET.get('search')
+        if search:
+            products = products.filter(name__icontains=search)
+
+        # Price filter
+        min_price = request.GET.get('min_price')
+        max_price = request.GET.get('max_price')
+
+        if min_price:
+            products = products.filter(price__gte=min_price)
+
+        if max_price:
+            products = products.filter(price__lte=max_price)
+
+        # Approval filter
+        approved = request.GET.get('approved')
+        if approved is not None:
+            if approved.lower() == 'true':
+                products = products.filter(approved=True)
+            elif approved.lower() == 'false':
+                products = products.filter(approved=False)
+
+        # Ordering
+        order = request.GET.get('order')
+        if order == 'price_low':
+            products = products.order_by('price')
+        elif order == 'price_high':
+            products = products.order_by('-price')
+        elif order == 'new':
+            products = products.order_by('-created_at')
+
+        paginator = StandardPagination()
+        result_page = paginator.paginate_queryset(products, request)
+
+        if result_page is not None:
+            serializer = ProductSerializer(result_page, many=True)
+            return paginator.get_paginated_response(serializer.data)
+
+        serializer = ProductSerializer(products, many=True)
+        return Response(serializer.data)
+
 
 
 class RegisterAPI(APIView):

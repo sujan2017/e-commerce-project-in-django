@@ -25,6 +25,8 @@ from .api_views import (
 
     NotificationListAPI,
     NotificationSeenAPI,
+
+    SupplierProductListAPI,
 )
 
 
@@ -38,7 +40,8 @@ urlpatterns = [
     path('login/', LoginAPI.as_view()),
 
     # Products
-    path('products/', ProductListAPI.as_view(), name='product-list'),                      # all approved products
+    path('products/', ProductListAPI.as_view(), name='product-list'),   # all approved products
+                                           
     path('supplier/products/add/', SupplierProductCreateAPI.as_view()),
     path('supplier/orders/', SupplierOrderListAPI.as_view()),
 
@@ -66,6 +69,8 @@ urlpatterns = [
 
     # Admin Analytic
     path('admin/analytics/', AdminAnalyticsAPI.as_view()),
+
+    path('supplier/products/', SupplierProductListAPI.as_view()),
 ]
 
     
