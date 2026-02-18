@@ -11,6 +11,7 @@ from .services import create_notification, send_email_and_log
 from django.db.models import Sum, Count
 
 
+
 from .models import Product, SupplierProfile,CustomerProfile,DeliveryProfile, UserRole,User, Order, Notification, OrderItem
 from .serializers import ProductSerializer, RegisterSerializer, LoginSerializer, OrderSerializer, OrderCreateSerializer, NotificationSerializer
 
@@ -217,6 +218,7 @@ class AdminOrderListAPI(ListAPIView):
     def get_queryset(self):
         return Order.objects.all()
     
+    
 class SupplierOrderListAPI(ListAPIView):
 
     serializer_class=OrderSerializer
@@ -251,6 +253,7 @@ class OrderCreateAPI(APIView):
         customer_profile= CustomerProfile.objects.get(user=request.user)
         
         order= serializer.save(customer=customer_profile)
+               
 
         return Response(OrderSerializer(order).data, status=201)
     
@@ -322,18 +325,18 @@ class AdminOrderAcceptAPI(APIView):
         if order.status !='PENDING':
             return Response({"error": "Order already processed"}, status=400)
         
-        order.status= "Accepted" # change order status
+        order.status= "ACCEPTED" # change order status
         order.save()
 
         #notification for customer
         create_notification(
-            order.customer.user, f"Your order #{order.id} has been accepted."
+            order.customer.user, f"Your order '{order.title}' (Order #{order.id}) has been accepted."
         )
 
         # email 
         send_email_and_log(
             "Order Accepted",
-            f"Your order #{order.id} hasd been accepted.",
+            f"Your order '{order.title}' (Order #{order.id}) has been accepted.",
             order.customer.user.email
         )
 
@@ -344,55 +347,85 @@ class AdminOrderAcceptAPI(APIView):
 
 class AdminAssignDeliveryAPI(APIView):
 
-    permission_classes= [IsAdmin]
+    permission_classes = [IsAdmin]
 
-    def post(self, request,id):
-        delivery_id= request.data.get('delivery_person_id')
+    def post(self, request, id):
+        delivery_id = request.data.get('delivery_person_id')
 
         try:
             order = Order.objects.get(id=id)
-            delivery_person= DeliveryProfile.objects.get(id=delivery_id)
+            delivery_person = DeliveryProfile.objects.get(id=delivery_id)
         except:
             return Response({"error": "Invalid order or delivery person"}, status=400)
-        
-        if order.status != 'Accepted':
+
+        if order.status != 'ACCEPTED':   # Keep status consistent
             return Response({"error": "Order must be accepted first"}, status=400)
-        
-        order.delivery_person= delivery_person
-        order.status= "ASSIGNED"
+
+        order.delivery_person = delivery_person
+        order.status = "ASSIGNED"
         order.save()
+
+        # Notification for delivery person
         create_notification(
-             delivery_person.user, f"You have been assigned order #{order.id}"
-         )
+            delivery_person.user,
+            f"You have been assigned order '{order.title}' (#{order.id})"
+        )
 
-        return Response({"message": "Delivery person assigned succesfully"})
-    
+        #  Email to customer
+        send_email_and_log(
+            "Order Assigned for Delivery",
+            f"Your order '{order.title}' (Order #{order.id}) has been assigned for delivery.",
+            order.customer.user.email
+        )
+
+        #  Email to delivery person
+        send_email_and_log(
+            "New Delivery Assignment",
+            f"You have been assigned order '{order.title}' (Order #{order.id}).",
+            delivery_person.user.email
+        )
+
+        return Response({"message": "Delivery person assigned successfully"})
 
 
-# Dekivery persin can update only their assigned order
-# assigned to on the way
-# on hte way to delivered
 
 class DeliveryOrderStatusUpdateAPI(APIView):
-    permission_classes=[IsDelivery]
+
+    permission_classes = [IsDelivery]
 
     def post(self, request, id):
-        status = request.data.get('status')
+
+        status_value = request.data.get("status")
+
+        if status_value not in ["OUT_FOR_DELIVERY", "DELIVERED"]:
+            return Response({"error": "Invalid status"}, status=400)
 
         try:
-            delivery = DeliveryProfile.objects.get(user=request.user)
-            order= Order.objects.get(id=id, delivery_person= delivery)
+            order = Order.objects.get(
+                id=id,
+                delivery_person__user=request.user
+            )
         except Order.DoesNotExist:
-            return Response({"error": "order not found"}, status=404)
-        
-        if status not in ['ON_THE_WAY', 'DELIVERED']:
-            return Response({"error": "Invalid status"}, status=400)
-        
-        order.status= status
+            return Response({"error": "Order not found or not assigned to you"}, status=404)
+
+        order.status = status_value
         order.save()
 
-        return Response({"message": f"order updated to {status}"})
-    
+        # Notify customer
+        create_notification(
+            order.customer.user,
+            f"Your order '{order.title}' (Order #{order.id}) status is now {status_value}."
+        )
+
+        # Email customer
+        send_email_and_log(
+            "Order Status Updated",
+            f"Your order '{order.title}' (Order #{order.id}) status is now {status_value}.",
+            order.customer.user.email
+        )
+
+        return Response({"message": "Order status updated successfully"})
+
 
 # get notification 
 
@@ -404,7 +437,9 @@ class NotificationListAPI(APIView):
         serializer= NotificationSerializer(notifications, many=True)
 
         return Response(serializer.data)
-    
+
+
+
 # mark seen 
 class NotificationSeenAPI(APIView):
     permission_classes=[IsAuthenticated]

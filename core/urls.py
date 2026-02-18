@@ -71,6 +71,8 @@ urlpatterns = [
     path('admin/analytics/', AdminAnalyticsAPI.as_view()),
 
     path('supplier/products/', SupplierProductListAPI.as_view()),
+
+    
 ]
 
     
