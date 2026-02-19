@@ -27,6 +27,8 @@ from .api_views import (
     NotificationSeenAPI,
 
     SupplierProductListAPI,
+
+    CancelOrderAPI,
 )
 
 
@@ -71,6 +73,9 @@ urlpatterns = [
     path('admin/analytics/', AdminAnalyticsAPI.as_view()),
 
     path('supplier/products/', SupplierProductListAPI.as_view()),
+
+    path('customer/order/<int:id>/cancel/', CancelOrderAPI.as_view()),
+    
 
     
 ]
