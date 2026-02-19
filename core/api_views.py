@@ -397,16 +397,36 @@ class DeliveryOrderStatusUpdateAPI(APIView):
 
         status_value = request.data.get("status")
 
-        if status_value not in ["OUT_FOR_DELIVERY", "DELIVERED"]:
-            return Response({"error": "Invalid status"}, status=400)
-
         try:
             order = Order.objects.get(
                 id=id,
                 delivery_person__user=request.user
             )
         except Order.DoesNotExist:
-            return Response({"error": "Order not found or not assigned to you"}, status=404)
+            return Response(
+                {"error": "Order not found or not assigned to you"},
+                status=404
+            )
+
+        # Allowed transitions
+        allowed_transitions = {
+            "ASSIGNED": "ON_THE_WAY",
+            "ON_THE_WAY": "DELIVERED",
+        }
+
+        if order.status not in allowed_transitions:
+            return Response(
+                {"error": "Invalid current order status"},
+                status=400
+            )
+
+        if status_value != allowed_transitions[order.status]:
+            return Response(
+                {
+                    "error": f"Order can only move to {allowed_transitions[order.status]}"
+                },
+                status=400
+            )
 
         order.status = status_value
         order.save()
@@ -424,7 +444,11 @@ class DeliveryOrderStatusUpdateAPI(APIView):
             order.customer.user.email
         )
 
-        return Response({"message": "Order status updated successfully"})
+        return Response(
+            {"message": "Order status updated successfully"},
+            status=200
+        )
+
 
 
 # get notification 
