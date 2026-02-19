@@ -314,7 +314,7 @@ class AdminProductApproveAPI(APIView):
 
 class AdminOrderAcceptAPI(APIView):
 
-    permission_classes=[IsAdmin]    #only admin can change order status
+    permission_classes=[IsAdmin]    #only admin can accept order 
 
     def post(self, request, id):
         try: 

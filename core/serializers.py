@@ -48,40 +48,48 @@ class OrderCreateSerializer(serializers.ModelSerializer):
         fields = ['title', 'description', 'items']
 
     def create(self, validated_data):
-        items_data= validated_data.pop('items')
-
-        customer = validated_data.pop('customer')   #come from apiview
+        items_data = validated_data.pop('items')
+        customer = validated_data.pop('customer')
 
         with transaction.atomic():
+
             order = Order.objects.create(
                 customer=customer,
                 **validated_data
             )
-                    
+
             total = 0
 
-        for item in items_data:
-            product = item['product']
-            quantity = item['quantity']
+            for item in items_data:
+                product = item['product']
+                quantity = item['quantity']
 
-            #check stock 
-            if product.stock < quantity:
-                raise serializers.ValidationError(f"Not Enough Stock for {product.name}. available stock: {product.stock}.")
-            
-            #reduce stock
-            product.stock -=quantity
-            product.save()
+                # Lock product row 
+                product = Product.objects.select_for_update().get(id=product.id)
 
-            #create order item
-            OrderItem.objects.create(
-                order= order,
-                product=product,
-                quantity=quantity,
-                price = product.price
-            )
-            total += product.price * quantity
-        order.total_price= total
-        order.save()
+                # Check stock
+                if product.stock < quantity:
+                    raise serializers.ValidationError(
+                        f"Not Enough Stock for {product.name}."
+                        f"Available stock: {product.stock}."
+                    )
+
+                # Reduce stock
+                product.stock -= quantity
+                product.save()
+
+                # Create order item
+                OrderItem.objects.create(
+                    order=order,
+                    product=product,
+                    quantity=quantity,
+                    price=product.price
+                )
+
+                total += product.price * quantity
+
+            order.total_price = total
+            order.save()
 
         return order
 
