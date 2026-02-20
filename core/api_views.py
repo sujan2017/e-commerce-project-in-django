@@ -9,6 +9,9 @@ from django.contrib.auth import authenticate
 from rest_framework.authtoken.models import Token
 from .services import create_notification, send_email_and_log
 from django.db.models import Sum, Count
+from django.db import transaction
+from django_filters.rest_framework import DjangoFilterBackend
+from .filters import OrderFilter
 
 
 
@@ -203,20 +206,27 @@ class LoginAPI(APIView):
 
 class CustomerOrderListAPI(ListAPIView):
 
-    serializer_class=OrderSerializer
-    permission_classes= [IsCustomer]
+    serializer_class = OrderSerializer
+    permission_classes = [IsCustomer]
+
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = OrderFilter
 
     def get_queryset(self):
-        return Order.objects.filter(customer__user=self.request.user)
-    
+        return Order.objects.filter(
+            customer__user=self.request.user
+        ).order_by("-created_at")
+
 
 class AdminOrderListAPI(ListAPIView):
 
-    serializer_class=OrderSerializer
-    permission_classes=[IsAdmin]
+    serializer_class = OrderSerializer
+    permission_classes = [IsAdmin]
 
-    def get_queryset(self):
-        return Order.objects.all()
+    queryset = Order.objects.all().order_by("-created_at")
+
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = OrderFilter
     
     
 class SupplierOrderListAPI(ListAPIView):
@@ -224,10 +234,13 @@ class SupplierOrderListAPI(ListAPIView):
     serializer_class=OrderSerializer
     permission_classes=[IsSupplier]
 
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = OrderFilter
+
     def get_queryset(self):
         return Order.objects.filter(
-            items__product__supplier__user=self.request.user
-        ).distinct()
+           orderitem__product__supplier__user=self.request.user
+        ).distinct().order_by("-created_at")
     
 
 class DeliveryOrderListAPI(ListAPIView):
@@ -235,10 +248,13 @@ class DeliveryOrderListAPI(ListAPIView):
     serializer_class=OrderSerializer
     permission_classes=[IsDelivery]
 
+    filter_backends = [DjangoFilterBackend]
+    filterset_class = OrderFilter
+
     def get_queryset(self):
         return Order.objects.filter(
             delivery_person__user=self.request.user
-        )
+        ).order_by("-created_at")
 
 
 
@@ -541,3 +557,56 @@ class AdminAnalyticsAPI(APIView):
 
 
 
+class CancelOrderAPI(APIView):
+
+    permission_classes = [IsCustomer]
+
+    def post(self, request, id):
+
+        try:
+            order = Order.objects.get(
+                id=id,
+                customer__user=request.user
+            )
+        except Order.DoesNotExist:
+            return Response(
+                {"error": "Order not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
+        if order.status in ["DELIVERED", "CANCELLED", "ON_THE_WAY"]:
+            return Response(
+                {"error": "This order cannot be cancelled"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        with transaction.atomic():
+
+            # Restore stock
+            for item in order.orderitem_set.all():
+
+                product = Product.objects.select_for_update().get(id=item.product.id)
+
+                product.stock += item.quantity
+                product.save()
+
+            order.status = "CANCELLED"
+            order.save()
+
+        # Notify customer
+        create_notification(
+            order.customer.user,
+            f"Your order '{order.title}' has been cancelled successfully."
+        )
+
+        # Email customer
+        send_email_and_log(
+            "Order Cancelled",
+            f"Your order '{order.title}' has been cancelled and stock restored.",
+            order.customer.user.email
+        )
+
+        return Response(
+            {"message": "Order cancelled successfully"},
+            status=status.HTTP_200_OK
+        )
