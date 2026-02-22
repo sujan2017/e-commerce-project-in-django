@@ -42,9 +42,11 @@ INSTALLED_APPS = [
     'rest_framework.authtoken',
     'core',
     'django_filters',
-
+    'channels',
 
 ]
+
+ASGI_APPLICATION = "project.asgi.application"
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -57,6 +59,12 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = 'project.urls'
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer",
+    },
+}
 
 TEMPLATES = [
     {

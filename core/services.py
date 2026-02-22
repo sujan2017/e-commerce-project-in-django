@@ -5,13 +5,21 @@ from .models import Notification, EmailLog
 
 # reusable business logic inside a service layer
 
+from asgiref.sync import async_to_sync
+from channels.layers import get_channel_layer
+
 def create_notification(user, message):
+    Notification.objects.create(user=user, message=message)
 
-    # create notification for a user
+    channel_layer = get_channel_layer()
+    group_name = f"user_{user.id}"
 
-    Notification.objects.create(
-        user=user,
-        message=message
+    async_to_sync(channel_layer.group_send)(
+        group_name,
+        {
+            "type": "send_notification",
+            "message": message,
+        }
     )
 
 
