@@ -651,3 +651,42 @@ class CancelOrderAPI(APIView):
             {"message": "Order cancelled successfully"},
             status=status.HTTP_200_OK
         )
+
+
+class SupplierAnalyticsAPI(APIView):
+    permission_classes = [IsSupplier]
+
+    def get(self, request):
+
+        supplier = SupplierProfile.objects.get(user=request.user)
+
+        # Total products
+        total_products = Product.objects.filter(supplier=supplier).count()
+
+        # Approved products
+        approved_products = Product.objects.filter(
+            supplier=supplier,
+            approved=True
+        ).count()
+
+        # Total orders involving supplier products
+        total_orders = OrderItem.objects.filter(
+            product__supplier=supplier
+        ).values('order').distinct().count()
+
+        # Total revenue from supplier products
+        total_revenue = (
+            OrderItem.objects
+            .filter(
+                product__supplier=supplier,
+                order__status='DELIVERED'
+            )
+            .aggregate(total=Sum('price'))['total'] or 0
+        )
+
+        return Response({
+            "total_products": total_products,
+            "approved_products": approved_products,
+            "total_orders": total_orders,
+            "total_revenue": total_revenue
+        })
