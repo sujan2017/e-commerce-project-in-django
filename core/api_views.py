@@ -8,7 +8,8 @@ from rest_framework.pagination import PageNumberPagination
 from django.contrib.auth import authenticate
 from rest_framework.authtoken.models import Token
 from .services import create_notification, send_email_and_log
-from django.db.models import Sum, Count
+from django.db.models import Sum, Count, F
+from django.db.models.functions import TruncMonth
 from django.db import transaction
 from django_filters.rest_framework import DjangoFilterBackend
 from .filters import OrderFilter
@@ -113,7 +114,9 @@ class SupplierProductListAPI(APIView):
     permission_classes = [IsSupplier]
 
     def get(self, request):
-        products = Product.objects.filter(supplier=request.user)
+
+        supplier= SupplierProfile.objects.get(user=request.user)
+        products = Product.objects.filter(supplier=supplier)
 
         # Search
         search = request.GET.get('search')
@@ -233,7 +236,7 @@ class AdminOrderListAPI(ListAPIView):
     search_fields=[
         "title",
         "description",
-        "orderitem__product__name"
+        "items__product__name"
     ]
     
     ordering_fields =[
@@ -254,7 +257,7 @@ class SupplierOrderListAPI(ListAPIView):
     search_fields=[
         "title",
         "description",
-        "orderitem__product__name",
+        "items__product__name",
     ]
 
     ordering_fields=[
@@ -265,7 +268,7 @@ class SupplierOrderListAPI(ListAPIView):
 
     def get_queryset(self):
         return Order.objects.filter(
-           orderitem__product__supplier__user=self.request.user
+           items__product__supplier__user=self.request.user
         ).distinct().order_by("-created_at")
     
 
@@ -407,42 +410,79 @@ class AdminAssignDeliveryAPI(APIView):
     permission_classes = [IsAdmin]
 
     def post(self, request, id):
-        delivery_id = request.data.get('delivery_person_id')
+        delivery_id = request.data.get("delivery_person_id")
+
+        if not delivery_id:
+            return Response(
+                {"error": "Delivery person ID is required"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
         try:
             order = Order.objects.get(id=id)
-            delivery_person = DeliveryProfile.objects.get(id=delivery_id)
-        except:
-            return Response({"error": "Invalid order or delivery person"}, status=400)
+        except Order.DoesNotExist:
+            return Response(
+                {"error": "Order not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
 
-        if order.status != 'ACCEPTED':   # Keep status consistent
-            return Response({"error": "Order must be accepted first"}, status=400)
+        if order.status != "ACCEPTED":
+            return Response(
+                {"error": "Order must be accepted first"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
-        order.delivery_person = delivery_person
-        order.status = "ASSIGNED"
-        order.save()
+        try:
+            with transaction.atomic():
+                delivery_person = DeliveryProfile.objects.select_for_update().get(
+                    id=delivery_id
+                )
 
-        # Notification for delivery person
+                # Availability check
+                if not delivery_person.available:
+                    return Response(
+                        {"error": "Delivery person is currently not available"},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+
+                # Assign delivery
+                order.delivery_person = delivery_person
+                order.status = "ASSIGNED"
+                order.save()
+
+                # Mark delivery unavailable
+                delivery_person.available = False
+                delivery_person.save()
+
+        except DeliveryProfile.DoesNotExist:
+            return Response(
+                {"error": "Invalid delivery person"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Notifications
         create_notification(
             delivery_person.user,
             f"You have been assigned order '{order.title}' (#{order.id})"
         )
 
-        #  Email to customer
+        # Emails
         send_email_and_log(
             "Order Assigned for Delivery",
             f"Your order '{order.title}' (Order #{order.id}) has been assigned for delivery.",
             order.customer.user.email
         )
 
-        #  Email to delivery person
         send_email_and_log(
             "New Delivery Assignment",
             f"You have been assigned order '{order.title}' (Order #{order.id}).",
             delivery_person.user.email
         )
 
-        return Response({"message": "Delivery person assigned successfully"})
+        return Response(
+            {"message": "Delivery person assigned successfully"},
+            status=status.HTTP_200_OK
+        )
 
 
 
@@ -487,6 +527,12 @@ class DeliveryOrderStatusUpdateAPI(APIView):
 
         order.status = status_value
         order.save()
+
+        if status_value == "DELIVERED":
+            delivery_profile = order.delivery_person
+            delivery_profile.available=True
+            delivery_profile.save()
+
 
         # Notify customer
         create_notification(
@@ -547,6 +593,7 @@ class AdminAnalyticsAPI(APIView):
     - total revenue
     - top suppliers
     - recent orders
+    - monthly revenue
     """
     permission_classes = [IsAdmin]
 
@@ -570,6 +617,15 @@ class AdminAnalyticsAPI(APIView):
             ['total'] or 0
         )
 
+        monthly_revenue =(
+            Order.objects
+            .filter(status='DELIVERED')
+            .annotate(month=TruncMonth('created_at'))
+            .values('month')
+            .annotate(total=Sum('total_price'))
+            .order_by('month')
+        )
+
         # 4. Top suppliers (by number of sold items)
         top_suppliers = (
             OrderItem.objects
@@ -591,10 +647,12 @@ class AdminAnalyticsAPI(APIView):
         return Response({
             "total_orders": total_orders,
             "total_revenue": total_revenue,
+            "monthly_revenue": monthly_revenue,
             "orders_by_status": orders_by_status,
             "top_suppliers": top_suppliers,
             "recent_orders": recent_orders_data
         })
+    
 
 
 
@@ -615,9 +673,9 @@ class CancelOrderAPI(APIView):
                 status=status.HTTP_404_NOT_FOUND
             )
 
-        if order.status in ["DELIVERED", "CANCELLED", "ON_THE_WAY"]:
+        if order.status in ["ASSIGNED", "DELIVERED", "CANCELLED", "ON_THE_WAY"]:
             return Response(
-                {"error": "This order cannot be cancelled"},
+                {"error": f"This order cannot be cancelled. Order is already {order.status}"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -680,8 +738,7 @@ class SupplierAnalyticsAPI(APIView):
             .filter(
                 product__supplier=supplier,
                 order__status='DELIVERED'
-            )
-            .aggregate(total=Sum('price'))['total'] or 0
+            ).aggregate(total=Sum(F('price') * F('quantity')))
         )
 
         return Response({
