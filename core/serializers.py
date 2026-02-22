@@ -2,6 +2,7 @@ from rest_framework import serializers
 from django.contrib.auth.models import User
 from .models import Product, Category, Order, OrderItem, SupplierProfile,CustomerProfile,DeliveryProfile,UserRole,Notification
 from django.db import transaction
+from .services import create_notification, send_email_and_log
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -77,6 +78,21 @@ class OrderCreateSerializer(serializers.ModelSerializer):
                 # Reduce stock
                 product.stock -= quantity
                 product.save()
+
+                # check stock to inform supplier
+
+                if Product.stock <= 5:
+                    create_notification(
+                        product.supplier.user,
+                        f"Low stock alert: '{product.name}' has only {product.stock} items left."
+                    
+                    )
+
+                    send_email_and_log(
+                        "low Stock Alert",
+                        f"Ypur Product '{product.name}' is running low. only {product.stock} items remaingin.",
+                        product.supplier.user.email
+                    )
 
                 # Create order item
                 OrderItem.objects.create(

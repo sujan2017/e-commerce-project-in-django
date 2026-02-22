@@ -12,6 +12,7 @@ from django.db.models import Sum, Count
 from django.db import transaction
 from django_filters.rest_framework import DjangoFilterBackend
 from .filters import OrderFilter
+from rest_framework.filters import SearchFilter, OrderingFilter
 
 
 
@@ -225,17 +226,42 @@ class AdminOrderListAPI(ListAPIView):
 
     queryset = Order.objects.all().order_by("-created_at")
 
-    filter_backends = [DjangoFilterBackend]
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+
     filterset_class = OrderFilter
+
+    search_fields=[
+        "title",
+        "description",
+        "orderitem__product__name"
+    ]
     
+    ordering_fields =[
+        "total_price",
+        "created_at",
+        "status",
+    ]
     
 class SupplierOrderListAPI(ListAPIView):
 
     serializer_class=OrderSerializer
     permission_classes=[IsSupplier]
 
-    filter_backends = [DjangoFilterBackend]
+    filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
+    
     filterset_class = OrderFilter
+
+    search_fields=[
+        "title",
+        "description",
+        "orderitem__product__name",
+    ]
+
+    ordering_fields=[
+        "total_price",
+        "created_at",
+        "status",
+    ]
 
     def get_queryset(self):
         return Order.objects.filter(
@@ -248,8 +274,23 @@ class DeliveryOrderListAPI(ListAPIView):
     serializer_class=OrderSerializer
     permission_classes=[IsDelivery]
 
-    filter_backends = [DjangoFilterBackend]
+    filter_backends = [
+        DjangoFilterBackend,
+        SearchFilter, 
+        OrderingFilter]
+    
     filterset_class = OrderFilter
+
+    search_fields =[
+        "title",
+        "description",
+    ]
+
+    ordering_fields =[
+        "total_price",
+        "created_at",
+        "status",
+    ]
 
     def get_queryset(self):
         return Order.objects.filter(
