@@ -79,9 +79,9 @@ class OrderCreateSerializer(serializers.ModelSerializer):
                 product.stock -= quantity
                 product.save()
 
-                # check stock to inform supplier
+                # check for low stock to inform supplier
 
-                if Product.stock <= 5:
+                if product.stock <= 5:    # set low stock threshold 5
                     create_notification(
                         product.supplier.user,
                         f"Low stock alert: '{product.name}' has only {product.stock} items left."
@@ -123,7 +123,6 @@ class RegisterSerializer(serializers.Serializer):
     phone = serializers.CharField(required= False)
     address = serializers.CharField(required = False)
     company_name = serializers.CharField(required=False)
-
 
 
     #username check

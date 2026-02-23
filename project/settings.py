@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     'core',
     'django_filters',
     'channels',
+    'drf_spectacular',
 
 ]
 
@@ -147,6 +148,8 @@ REST_FRAMEWORK = {
     'DEFAULT_FILTER_BACKENDS':[
         'django_filters.rest_framework.DjangoFilterBackend'
     ],
+
+    "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
 }
 
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'

@@ -8,6 +8,7 @@ from .models import Notification, EmailLog
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
 
+
 def create_notification(user, message):
     Notification.objects.create(user=user, message=message)
 
