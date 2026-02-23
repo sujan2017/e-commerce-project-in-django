@@ -1,98 +1,101 @@
 
-# E-Commerce Platform (Django Backend)
+# E-Commerce Platform (Django REST Framework)
 
-A scalable and modular **E-Commerce Platform backend** built with **Python and Django**, designed to support real-world online shopping workflows such as product management, orders, users, and role-based access.
+A role-based E-Commerce backend system built using Django 6, Django REST Framework, and WebSocket (Django Channels).
 
-This project is developed as a **backend system** with clean architecture and REST-style APIs.
-
----
-
-##  Features
-
-- User authentication and role management
-- Product and category management
-- Order creation and order tracking
-- Supplier, customer, and delivery profiles
-- RESTful API structure using Django REST Framework
-- Centralized business logic in a single core app
-- Clean project structure suitable for scaling
+This project supports Admin, Supplier, Customer, and Delivery roles with advanced order management, filtering, analytics, and real-time notifications.
 
 ---
 
-## Tech Stack
+## 🚀 Features
 
-- **Backend:** Python, Django
-- **API:** Django REST Framework (DRF)
-- **Database:** SQLite (development)
-- **Version Control:** Git & GitHub
-- **Environment:** Virtualenv
+### 🔐 Authentication
+- JWT Authentication (SimpleJWT)
+- Role-based permissions (Admin, Supplier, Customer, Delivery)
 
----
-## Project Structure
+### 🛍 Product Management
+- Supplier can create/update/delete products
+- Admin approval system
+- Product search & filtering
+- Price range filtering
+- Category filtering
+- Sorting (price low/high, newest)
+- Pagination
 
-e-commerce-platform/
-│
-├── core/
-│ ├── models.py # All database models (Product, Order, Profiles, etc.)
-│ ├── api_views.py # API views and business logic
-│ ├── serializers.py # DRF serializers
-│ ├── permissions.py # Custom permissions
-│ └── urls.py # API routing
-│
-├── project/
-│ ├── settings.py
-│ ├── urls.py
-│ └── wsgi.py
-│
-├── manage.py
-├── db.sqlite3
-├── .gitignore
-└── README.md
+### 📦 Order Management
+- Customers can place orders
+- Admin can accept orders
+- Admin assigns delivery person
+- Delivery availability tracking
+- Order status control system
 
+### 📊 Admin Analytics
+- Order statistics
+- Revenue tracking
+- Product approval monitoring
 
+### 🔔 Notifications
+- Database notifications
+- Real-time WebSocket notifications (Django Channels)
 
+### 📧 Email System
+- Order confirmation emails
+- Delivery assignment emails
 
-> 🔹 The project uses a **single `core` app** where all main logic (models, APIs, permissions, serializers) is organized for simplicity and maintainability.
-
----
-
-## Core Modules Explanation
-
-### Products & Categories
-- Manage products with pricing and categories
-- Structured for easy extension (inventory, discounts, etc.)
-
-### Orders
-- Create and manage customer orders
-- Track order items and order status
-
-### User Roles
-- Different profiles for:
-  - Customer
-  - Supplier
-  - Delivery
-- Role-based access using custom permissions
+### 📘 API Documentation
+- Swagger UI available via drf-spectacular
 
 ---
 
+## 🛠 Tech Stack
 
-##  Project Purpose
+- Python 3.13
+- Django 6
+- Django REST Framework
+- Django Channels (WebSocket)
+- JWT Authentication (SimpleJWT)
+- drf-spectacular (OpenAPI Documentation)
+- SQLite (Development)
 
-This project is built to:
+---
 
-  -Demonstrate real-world Django backend development
-  -Showcase clean API design and project structure
+## ⚙ Installation Guide
 
-
-## Future Improvements
-
-  -JWT authentication
-  -Payment gateway integration
-  -Deployment (Docker / AWS / Railway)
+### 1️⃣ Clone Repository
+git clone https://github.com/sujan2017/e-commerce-project-in-django.git
 
 
 
-## Author
+### 2️⃣ Create Virtual Environment
+python -m venv venv
+venv\Scripts\activate
+
+### 3️⃣ Install Dependencies
+pip install -r requirements.txt
+
+### 4️⃣ Apply Migrations
+python manage.py migrate
+
+### 4️⃣ Create Superuser
+python manage.py createsuperuser
+
+### 5️⃣ Run Server
+python manage.py runserver
+
+
+
+## 📘 API Documentation
+
+Swagger UI available at: http://127.0.0.1:8000/api/docs/
+
+Open API Schema: http://127.0.0.1:8000/api/schema/
+
+
+## 🔔 WebSocket Endpoint
+ws://127.0.0.1:8000/ws/notifications/
+
+
+
 
 Sujan Thapa
 Python & Django Backend Developer
