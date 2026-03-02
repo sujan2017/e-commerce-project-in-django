@@ -4,6 +4,11 @@ from django.contrib.auth.models import User
 
 # Create your models here.
 
+"""
+Defines order and product models used for the e-commerce API.
+Includes relationships between users, products, and orders.
+"""
+
 ROLE_CHOICES=(
     ('ADMIN', 'Admin'),
     ('SUPPLIER', 'Supplier'),
@@ -85,7 +90,7 @@ class Order(models.Model):
 
     )
 
-    customer = models.ForeignKey(CustomerProfile, on_delete=models.CASCADE)
+    customer = models.ForeignKey(CustomerProfile, on_delete=models.CASCADE) #each order belong to a single customer
     delivery_person= models.ForeignKey(DeliveryProfile, on_delete=models.SET_NULL, null=True, related_name='orders')
 
     title= models.CharField(max_length=200)

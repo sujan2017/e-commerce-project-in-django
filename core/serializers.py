@@ -190,12 +190,3 @@ class NotificationSerializer(serializers.ModelSerializer):
         model= Notification
         fields='__all__'
 
-
-# class SupplierRevenueSerializer(serializers.ModelSerializer):
-#     total_revenue = serializers.DecimalField(
-#         max_digits=12, decimal_places=2
-#     )
-
-#     class Meta:
-#         model = SupplierProfile
-#         fields = ['id', 'company_name', 'total_revenue']
