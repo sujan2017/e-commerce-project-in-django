@@ -170,13 +170,14 @@ class RegisterAPI(APIView):
         username =data.get('username')
 
         if User.objects.filter(username=username).exists():
-            return Response({
-                "error": "Username already taken"
-            })
+            return Response(
+                {"error": "Username already taken"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
         
         serializer = RegisterSerializer(data=request.data)
 
-        if serializer.is_valid():
+        if serializer.is_valid(raise_exception=True):
             serializer.create(serializer.validated_data)
 
             return Response({

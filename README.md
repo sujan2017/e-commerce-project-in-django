@@ -96,7 +96,6 @@ ws://127.0.0.1:8000/ws/notifications/
 
 
 
-
 Sujan Thapa
 Python & Django Backend Developer
 GitHub: https://github.com/sujan2017
